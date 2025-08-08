@@ -1,0 +1,278 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Motorcycle Fatality Risk Calculator</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #0b1020;
+      --card: #111827;
+      --muted: #9ca3af;
+      --text: #e5e7eb;
+      --accent: #22d3ee;
+      --ok: #10b981;
+      --warn: #f59e0b;
+      --border: rgba(255,255,255,0.10);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(180deg, #0b1220, #0f172a 40%);
+      color: var(--text);
+      padding: 24px;
+    }
+    .container { max-width: 980px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin-bottom: 18px; }
+    .card {
+      background: rgba(17, 24, 39, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.25);
+      margin-bottom: 18px;
+    }
+    .grid { display: grid; gap: 16px; }
+    @media (min-width: 720px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+    label { display:block; font-weight: 600; margin-bottom: 8px; }
+    input[type="number"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+    }
+    .row { display: flex; align-items: center; gap: 12px; margin: 6px 0; }
+    .row input[type="checkbox"] { transform: scale(1.2); }
+    .radio-row { display:flex; gap: 12px; flex-wrap: wrap; }
+    .muted { color: var(--muted); font-size: 0.95rem; }
+    .pill {
+      display:inline-block;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin: 4px 8px 0 0;
+      background: rgba(255,255,255,0.02);
+    }
+    .result { display: grid; gap: 10px; }
+    .result .kpi {
+      background: linear-gradient(180deg, rgba(34, 211, 238, 0.08), rgba(34, 211, 238, 0.02));
+      border: 1px solid rgba(34, 211, 238, 0.25);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .kpi-title { font-size: 0.8rem; color: var(--muted); }
+    .kpi-value { font-size: 1.6rem; font-weight: 700; }
+    .small { font-size: 0.9rem; }
+    .footer { color: var(--muted); font-size: 0.85rem; }
+    a { color: var(--accent); text-decoration: none; }
+    .btn {
+      background: var(--accent);
+      color: #08121a;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+    details {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.02);
+    }
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      color: var(--text);
+      outline: none;
+    }
+    summary::-webkit-details-marker { display:none; }
+    .code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      background: rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Motorcycle Fatality Risk Calculator</h1>
+    <div class="sub">Quick estimate of <strong>annual fatality risk</strong> based on miles and rider factors. Uses U.S. 2023 national averages.</div>
+
+    <div class="card grid grid-2">
+      <div>
+        <label for="miles">Annual miles ridden</label>
+        <input type="number" id="miles" min="0" step="100" value="1000">
+        <div class="muted small">Try 1,000 (casual), 5,000 (moderate), 10,000+ (heavy).</div>
+      </div>
+      <div>
+        <label>Assumptions</label>
+        <div class="row"><input type="checkbox" id="helmet" checked><span>Wear a DOT helmet</span></div>
+        <div class="row"><input type="checkbox" id="noSpeeding" checked><span>Do not speed (as the rider)</span></div>
+        <div class="row"><input type="checkbox" id="noAlcohol" checked><span>No alcohol (BAC &ge; .08)</span></div>
+        <div class="row"><input type="checkbox" id="hasLicense" checked><span>Have a valid motorcycle license</span></div>
+        <div class="muted small">Helmet reduces severity; others remove slices of rider-involved fatalities.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <label>How should we treat overlap between speeding, alcohol, and licensing?</label>
+      <div class="radio-row">
+        <label class="row"><input type="radio" name="overlap" value="conservative" checked> <span>Conservative: assume full overlap (remove only the largest selected share)</span></label>
+        <label class="row"><input type="radio" name="overlap" value="independent"> <span>Independent: multiply complements (bigger combined reduction)</span></label>
+      </div>
+      <div class="muted small">Reality is between these; we show both ends.</div>
+    </div>
+
+    <div class="card">
+      <div class="pill">Motorcycle baseline: 31.39 deaths / 100M miles</div>
+      <div class="pill">Helmet effectiveness: 37% reduction</div>
+      <div class="pill">Speeding share: 36%</div>
+      <div class="pill">Alcohol-impaired rider share: 26%</div>
+      <div class="pill">No valid license share: 34%</div>
+      <div class="muted small" style="margin-top:8px;">Passenger car occupant benchmark: 1.13 deaths / 100M miles.</div>
+    </div>
+
+    <div class="card result" id="result">
+      <div class="kpi">
+        <div class="kpi-title">Annual fatality risk</div>
+        <div class="kpi-value" id="riskPct">—</div>
+        <div class="muted small" id="riskOdds">—</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-title">Equivalent "1 in N years" at your miles</div>
+        <div class="kpi-value" id="oneInN">—</div>
+        <div class="muted small">This is 1 ÷ annual risk.</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-title">Per-mile comparison</div>
+        <div class="kpi-value" id="perMile">—</div>
+        <div class="muted small">Motorcycle vs passenger car occupant fatality rate.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>Sources & assumptions</summary>
+        <div class="muted small" style="margin-top:10px; line-height:1.6;">
+          <p><strong>Baseline rates (U.S., 2023):</strong> Motorcyclists: 31.39 deaths per 100M vehicle-miles; Passenger car occupants: 1.13 per 100M miles. Source: NHTSA traffic safety facts.</p>
+          <p><strong>Helmet effectiveness:</strong> ~37% reduction in rider fatality risk (operators). Source: NHTSA / CDC summaries.</p>
+          <p><strong>Shares among fatal motorcycle crashes (riders):</strong> Speeding involvement 36%; Alcohol-impaired (BAC ≥ .08) 26%; No valid license 34%.</p>
+          <p><strong>Method:</strong> We begin with the baseline per-mile fatality rate for motorcyclists. When you select factors like no speeding, no alcohol, and valid license, the calculator removes the chosen shares from the baseline in one of two ways:
+          <ul>
+            <li><em>Conservative:</em> assumes full overlap of those shares and removes only the largest selected share.</li>
+            <li><em>Independent:</em> assumes independence and removes a combined share equal to <span class="code">1 − ∏(1 − share)</span>.</li>
+          </ul>
+          Then, if helmet is selected, we apply a 37% reduction to the remaining rate. Annual risk = (adjusted rate / 100,000,000) × miles/year.</p>
+          <p>This is a ballpark educational tool — not an actuarial quote. Real risk varies by roadway, speed environment, traffic mix, conspicuity, experience/training, time of day, weather, vehicle type, etc.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="card footer">
+      <p>Share this file directly or host it anywhere (GitHub Pages, Netlify, Vercel). No external dependencies.</p>
+      <button class="btn" id="copyLink">Copy this page URL</button>
+    </div>
+  </div>
+
+  <script>
+    const milesEl = document.getElementById('miles');
+    const helmetEl = document.getElementById('helmet');
+    const speedingEl = document.getElementById('noSpeeding');
+    const alcoholEl = document.getElementById('noAlcohol');
+    const licenseEl = document.getElementById('hasLicense');
+    const riskPctEl = document.getElementById('riskPct');
+    const riskOddsEl = document.getElementById('riskOdds');
+    const oneInNEl = document.getElementById('oneInN');
+    const perMileEl = document.getElementById('perMile');
+    const copyBtn = document.getElementById('copyLink');
+
+    // Constants (2023 U.S.)
+    const BASELINE_RATE = 31.39; // per 100M miles (motorcyclists)
+    const CAR_RATE = 1.13;       // per 100M miles (passenger car occupants)
+    const HELMET_REDUCTION = 0.37;
+    const SPEEDING_SHARE = 0.36;
+    const ALCOHOL_SHARE = 0.26;
+    const NO_LICENSE_SHARE = 0.34;
+
+    function combinedRemovableShare({ noSpeeding, noAlcohol, hasLicense }, mode) {
+      const shares = [];
+      if (noSpeeding) shares.push(SPEEDING_SHARE);
+      if (noAlcohol) shares.push(ALCOHOL_SHARE);
+      if (hasLicense) shares.push(NO_LICENSE_SHARE);
+
+      if (shares.length === 0) return 0;
+
+      if (mode === 'conservative') {
+        // Full overlap assumption: only the largest selected share is removable
+        return Math.max(...shares);
+      } else {
+        // Independent assumption: 1 - product of complements
+        return 1 - shares.reduce((acc, s) => acc * (1 - s), 1);
+      }
+    }
+
+    function computeRisk(milesPerYear, helmet, noSpeeding, noAlcohol, hasLicense, overlapMode) {
+      let rate = BASELINE_RATE;
+
+      const removable = combinedRemovableShare({ noSpeeding, noAlcohol, hasLicense }, overlapMode);
+      rate *= (1 - removable);
+
+      if (helmet) rate *= (1 - HELMET_REDUCTION);
+
+      const riskPerMile = rate / 100_000_000;
+      const annualRisk = riskPerMile * milesPerYear; // probability
+      return { annualRisk, rate };
+    }
+
+    function fmtPct(x) { return (x * 100).toFixed(4) + '%'; }
+    function fmtNum(x) {
+      if (!isFinite(x)) return '—';
+      if (x > 1000) return Math.round(x).toLocaleString();
+      return x.toFixed(0);
+    }
+    function update() {
+      const miles = Math.max(0, Number(milesEl.value || 0));
+      const helmet = helmetEl.checked;
+      const noSpeeding = speedingEl.checked;
+      const noAlcohol = alcoholEl.checked;
+      const hasLicense = licenseEl.checked;
+      const overlapMode = document.querySelector('input[name="overlap"]:checked').value;
+
+      const { annualRisk, rate } = computeRisk(miles, helmet, noSpeeding, noAlcohol, hasLicense, overlapMode);
+
+      riskPctEl.textContent = fmtPct(annualRisk);
+      oneInNEl.textContent = annualRisk > 0 ? fmtNum(1 / annualRisk) : '∞';
+      const perMileRatio = rate / CAR_RATE;
+      perMileEl.textContent = perMileRatio.toFixed(1) + '× motorcycle vs. car (per mile)';
+    }
+
+    milesEl.addEventListener('input', update);
+    [helmetEl, speedingEl, alcoholEl, licenseEl].forEach(el => el.addEventListener('change', update));
+    document.querySelectorAll('input[name="overlap"]').forEach(el => el.addEventListener('change', update));
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => copyBtn.textContent = 'Copy this page URL', 1500);
+      } catch (e) {
+        alert('Copy failed. You can still share the file or host it anywhere.');
+      }
+    });
+
+    update();
+  </script>
+</body>
+</html>
